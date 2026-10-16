@@ -1,0 +1,99 @@
+version: "2.4"
+server:
+  host: "0.0.0.0"
+  port: 18789
+  cors: true
+
+upstream:
+  provider: "gemini"
+  base_url: "https://generativelanguage.googleapis.com/v1beta/openai"
+  model: "gemini-flash-latest"
+  api_key_env: "GEMINI_API_KEY"
+  temperature: 0.2
+  max_tokens: 1500
+
+agents:
+  - id: "dc-orchestrator"
+    name: "OpenClaw Orchestrator"
+    role: "root_orchestrator"
+    description: "Classifies incoming voice intent, delegates to specialists, synthesizes spoken updates."
+    system_prompt: |
+      You are dc-orchestrator, the root OpenClaw orchestrator for Dark Coders.
+      You coordinate between the SRE Sentinel, CISO Guardian, and system tools.
+      Always adhere strictly to the OpenClaw screen contract.
+
+  - id: "devops-sentinel"
+    name: "DevOps Sentinel"
+    role: "devops_traffic_engineer"
+    description: "Monitors live logs, inspects network traffic and request rates, detects 5xx spikes, and manages cluster reliability."
+    allowed_tools:
+      - "traffic.monitor"
+      - "logs.analyze"
+      - "system.health"
+      - "cluster.service_status"
+      - "ops.restart_service"
+
+  - id: "backend-expert"
+    name: "Backend Architect"
+    role: "backend_engineering_lead"
+    description: "Provides senior guidance on backend architecture, API designs, database query optimization, and server logic."
+    allowed_tools:
+      - "system.health"
+      - "cluster.service_status"
+
+  - id: "sre-sentinel"
+    name: "SRE Sentinel"
+    role: "site_reliability_engineer"
+    description: "Monitors cluster and worker health, analyzes error logs, and proposes recovery operations."
+    allowed_tools:
+      - "system.health"
+      - "cluster.service_status"
+      - "logs.analyze"
+      - "ops.restart_service"
+      - "ops.rollback_deployment"
+
+  - id: "ciso-guardian"
+    name: "CISO Guardian"
+    role: "security_officer"
+    description: "Audits infrastructure security, scans dependencies for CVEs, reviews access controls."
+    allowed_tools:
+      - "security.audit_dependencies"
+      - "system.health"
+
+skills:
+  - id: "traffic.monitor"
+    type: "read_only"
+    risk: "low"
+    description: "Monitors live HTTP request rates (RPS), p95 latency percentiles, error rates, and network bandwidth."
+
+  - id: "system.health"
+    type: "read_only"
+    risk: "low"
+    description: "Inspects live server CPU, memory, load averages, and uptime."
+
+  - id: "cluster.service_status"
+    type: "read_only"
+    risk: "low"
+    description: "Inspects staging and production services, replica counts, and probe statuses."
+
+  - id: "logs.analyze"
+    type: "read_only"
+    risk: "low"
+    description: "Scans recent log streams for exceptions, readiness probe failures, and crash causes."
+
+  - id: "security.audit_dependencies"
+    type: "read_only"
+    risk: "low"
+    description: "Scans installed project packages for known CVE vulnerabilities."
+
+  - id: "ops.restart_service"
+    type: "state_changing"
+    risk: "medium"
+    requires_approval: true
+    description: "Gracefully drains and restarts an unhealthy service or worker."
+
+  - id: "ops.rollback_deployment"
+    type: "state_changing"
+    risk: "high"
+    requires_approval: true
+    description: "Rolls back a failed deployment to the last known good revision."
