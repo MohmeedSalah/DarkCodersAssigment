@@ -7,6 +7,7 @@ import { transcribeRecording, type Turn } from "@/lib/voice/agent";
 import { transcribeLocal } from "@/lib/voice/local-asr";
 import { cleanRaw, runProvider } from "@/lib/voice/providers-client";
 import { BUILTIN, KIND_INFO, findProvider, type Provider } from "@/lib/settings/providers";
+import { resolveGatewayModel } from "@/lib/ai/models";
 import { useProviders } from "@/components/provider-settings";
 import { focusModel, planPhases, planSummary, usePlans } from "@/components/plan-builder";
 import { BotBubble, InlineKeyboard, StepLog, TypingDots, UserBubble, useRunOptions, type RunStep } from "@/components/telegram-run";
@@ -151,7 +152,15 @@ function VoiceConsole() {
       const focus = override ?? focusModel(planState);
       const picked = focus?.model ? settings.providers.find((p) => p.model === focus.model) : undefined;
       if (focus?.model) addStep("Task model", picked ? `${focus.model} for ${focus.task}` : `${focus.model} isn't set up in Models yet — using the active model`, picked ? undefined : "warn");
-      const chain: Provider[] = [picked ?? findProvider(settings, settings.activeId) ?? BUILTIN];
+      const baseProvider = picked ?? findProvider(settings, settings.activeId) ?? BUILTIN;
+      const activeModel = baseProvider.kind === "builtin" && voiceSettings.agent
+        ? (resolveGatewayModel(voiceSettings.agent) ?? baseProvider.model)
+        : baseProvider.model;
+      const activeName = baseProvider.kind === "builtin" && voiceSettings.agent && roster[voiceSettings.agent]?.label
+        ? roster[voiceSettings.agent]!.label
+        : baseProvider.name;
+      const usedProvider: Provider = { ...baseProvider, model: activeModel, name: activeName };
+      const chain: Provider[] = [usedProvider];
       const fb = findProvider(settings, settings.fallbackId);
       if (fb && fb.id !== chain[0]!.id) chain.push(fb);
 

@@ -4,6 +4,18 @@ This directory contains the complete OpenClaw Multi-Agent Gateway implementation
 
 ---
 
+git clone https://github.com/MohmeedSalah/DarkCodersAssigment.git
+cd DarkCodersAssigment
+npm install
+npm test            # 15/15 tests passing
+npm run typecheck   # 0 type errors
+npm run openclaw    # Gateway on :18789 & :8000
+npm run dev         # Console on :8080
+
+---
+
+
+
 ## 1. Architecture Overview
 
 ```text

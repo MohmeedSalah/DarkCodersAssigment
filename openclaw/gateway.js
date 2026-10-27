@@ -439,17 +439,74 @@ async function processAgentTurn(messages, requestedAgent = "openclaw/default") {
     }
   }
 
-  // 8. General Upstream LLM reasoning (Orchestrator fallback)
-  const upstreamResult = await queryGeminiWithFallback(lastUserMsg);
+  // 8. Agent-Aware Upstream LLM reasoning & Fallbacks
+  let agentInstruction = "";
+  let agentChoices = [
+    { id: "check_worker", label: "Check worker", value: "Check staging worker status" },
+    { id: "check_traffic", label: "Check traffic", value: "Monitor live network traffic" },
+  ];
+  let agentFallbackText = "I am ready to help. You can ask me any question, ask me to check system health, or inspect service logs.";
+
+  if (agentId.includes("devops")) {
+    agentInstruction = [
+      "You are DevOps Sentinel for Dark Coders.",
+      "You specialize in monitoring live network traffic rates, inspecting 5xx error spikes, analyzing container logs, and cluster reliability.",
+      "Answer in the SAME language the user spoke (Arabic if Arabic, English if English).",
+      "Keep your answer concise (2-3 sentences), informative, natural for voice text-to-speech. Never use emojis, asterisks, or markdown.",
+      `User said: "${lastUserMsg}"`,
+    ].join("\n");
+    agentChoices = [
+      { id: "check_traffic", label: "Live traffic", value: "Monitor live network traffic" },
+      { id: "check_logs", label: "Inspect logs", value: "Show logs for worker-02" },
+    ];
+    agentFallbackText = "I am DevOps Sentinel. I can monitor live network traffic, request rates, latency percentiles, and server logs.";
+  } else if (agentId.includes("backend")) {
+    agentInstruction = [
+      "You are the Principal Backend Architect for Dark Coders.",
+      "You specialize in API design, database query optimization (PostgreSQL/SQL), microservices, caching strategies, and concurrency.",
+      "Answer in the SAME language the user spoke (Arabic if Arabic, English if English).",
+      "Keep your answer concise (2-3 sentences), informative, natural for voice text-to-speech. Never use emojis, asterisks, or markdown.",
+      `User said: "${lastUserMsg}"`,
+    ].join("\n");
+    agentChoices = [
+      { id: "db_arch", label: "Database tuning", value: "How should I optimize database indexing and queries?" },
+      { id: "api_design", label: "API design", value: "What are best practices for scalable REST APIs?" },
+    ];
+    agentFallbackText = "I am Backend Architect. You can ask me any question about API design, database query optimization, or caching.";
+  } else if (agentId.includes("sre")) {
+    agentInstruction = [
+      "You are SRE Sentinel, the senior Site Reliability Engineer for Dark Coders.",
+      "You specialize in cluster stability, container health, readiness probes, crash-looping workers, and safe recovery operations.",
+      "Answer in the SAME language the user spoke (Arabic if Arabic, English if English).",
+      "Keep your answer concise (2-3 sentences), informative, natural for voice text-to-speech. Never use emojis, asterisks, or markdown.",
+      `User said: "${lastUserMsg}"`,
+    ].join("\n");
+    agentChoices = [
+      { id: "check_worker", label: "Check worker", value: "Check staging worker status" },
+      { id: "system_health", label: "System health", value: "Check system health" },
+    ];
+    agentFallbackText = "I am SRE Sentinel. I can inspect cluster services, analyze container logs, or diagnose worker crashes.";
+  } else if (agentId.includes("ciso")) {
+    agentInstruction = [
+      "You are CISO Guardian, responsible for security posture, vulnerability management, and dependency CVE audits for Dark Coders.",
+      "Answer in the SAME language the user spoke (Arabic if Arabic, English if English).",
+      "Keep your answer concise (2-3 sentences), informative, natural for voice text-to-speech. Never use emojis, asterisks, or markdown.",
+      `User said: "${lastUserMsg}"`,
+    ].join("\n");
+    agentChoices = [
+      { id: "sec_audit", label: "Security audit", value: "Run dependency security audit" },
+      { id: "system_health", label: "System health", value: "Check system health" },
+    ];
+    agentFallbackText = "I am CISO Guardian. I can run security audits on project dependencies or inspect vulnerability reports.";
+  }
+
+  const upstreamResult = await queryGeminiWithFallback(lastUserMsg, agentInstruction);
   if (upstreamResult?.content) {
     return {
-      reasoning: `Synthesizing answer using ${upstreamResult.model} neural model.`,
+      reasoning: `Synthesizing answer using ${upstreamResult.model} neural model for ${agentId}.`,
       screen: buildScreenResponse({
         text: upstreamResult.content,
-        choices: [
-          { id: "ask_more", label: "معلومات أكثر", value: "أخبرني بالمزيد عن هذا الموضوع" },
-          { id: "check_worker", label: "فحص السيرفر", value: "Check staging worker status" },
-        ],
+        choices: agentChoices,
         navigation: ["home"],
       }),
     };
@@ -457,13 +514,10 @@ async function processAgentTurn(messages, requestedAgent = "openclaw/default") {
 
   // Fallback if network totally down
   return {
-    reasoning: "Synthesized response with OpenClaw root orchestrator.",
+    reasoning: `Synthesized response with ${agentId}.`,
     screen: buildScreenResponse({
-      text: "I am ready to help. You can ask me any backend question, ask me to check live traffic, or inspect service logs.",
-      choices: [
-        { id: "check_traffic", label: "Check traffic", value: "Monitor live network traffic" },
-        { id: "check_logs", label: "Inspect logs", value: "Show logs for worker-02" },
-      ],
+      text: agentFallbackText,
+      choices: agentChoices,
       navigation: ["home"],
     }),
   };
